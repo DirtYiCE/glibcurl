@@ -377,7 +377,7 @@ void glibcurl_init() {
   curl_global_init(CURL_GLOBAL_ALL);
   curlSrc->multiHandle = curl_multi_init();
   curl_multi_setopt(curlSrc->multiHandle, CURLMOPT_MAXCONNECTS, 4);
-  g_source_set_priority((GSource*)glibcurl_handle(), G_PRIORITY_DEFAULT_IDLE);
+  g_source_set_priority((GSource*)curlSrc, G_PRIORITY_DEFAULT_IDLE);
   D((stderr, "events: R=%x W=%x X=%x\n", GLIBCURL_READ, GLIBCURL_WRITE,
      GLIBCURL_EXC));
 
