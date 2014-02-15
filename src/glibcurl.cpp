@@ -337,9 +337,6 @@ typedef struct CurlGSource_ {
 /* Global state: Our CurlGSource object */
 static CurlGSource* curlSrc = 0;
 
-// Number of easy handles currently active
-static int s_numEasyHandles = 0;
-
 // Current timeout value to wait in poll
 static int s_currTimeout = 0;
 
@@ -381,7 +378,6 @@ void glibcurl_init() {
   D((stderr, "events: R=%x W=%x X=%x\n", GLIBCURL_READ, GLIBCURL_WRITE,
      GLIBCURL_EXC));
 
-  s_numEasyHandles = 0;
   s_currTimeout = 0;
   s_timeAtLastDispatch.tv_sec = 0;
   s_timeAtLastDispatch.tv_nsec = 0;
@@ -396,7 +392,6 @@ CURLM* glibcurl_handle() {
 CURLMcode glibcurl_add(CURL *easy_handle) {
   assert(curlSrc->multiHandle != 0);
   curlSrc->callPerform = -1;
-  s_numEasyHandles++;
   CURLMcode ret = curl_multi_add_handle(curlSrc->multiHandle, easy_handle);
   g_main_context_wakeup(g_main_context_default());
   return ret;
@@ -406,8 +401,6 @@ CURLMcode glibcurl_add(CURL *easy_handle) {
 CURLMcode glibcurl_remove(CURL *easy_handle) {
   assert(curlSrc != 0);
   assert(curlSrc->multiHandle != 0);
-  assert(s_numEasyHandles > 0);
-  s_numEasyHandles--;
   CURLMcode ret = curl_multi_remove_handle(curlSrc->multiHandle, easy_handle);
   g_main_context_wakeup(g_main_context_default());
   return ret;
@@ -441,7 +434,7 @@ void glibcurl_cleanup() {
   curlSrc->multiHandle = 0;
   curl_global_cleanup();
 
-  g_source_destroy(&curlSrc->source); 
+  g_source_destroy(&curlSrc->source);
   g_source_unref(&curlSrc->source);
   curlSrc = 0;
 }
@@ -531,7 +524,7 @@ gboolean prepare(GSource* source, gint* timeout) {
   // Curl says wait forever. do it only when if we don't have pending
   // connections
   if (curlTimeout < 0) {
-      s_currTimeout = *timeout = (s_numEasyHandles > 0) ? GLIBCURL_TIMEOUT : -1;
+      s_currTimeout = *timeout = GLIBCURL_TIMEOUT;
       return FALSE;
   }
 
@@ -549,8 +542,8 @@ gboolean check(GSource* source) {
   int fd, somethingHappened = 0;
 
   assert(source == &curlSrc->source);
-    
-  if (curlSrc->multiHandle == 0 || s_numEasyHandles <= 0) {
+
+  if (curlSrc->multiHandle == 0) {
       curlSrc->callPerform = 0;
       return FALSE;
   }
